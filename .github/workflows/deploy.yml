@@ -29,8 +29,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Java (required by PySpark)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "11"
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Deploy to Microsoft Fabric
+      - name: Verify service-principal authentication
         run: python src/fabric_client.py
+
+      - name: Deploy energy medallion (lakehouses + Delta tables)
+        working-directory: src
+        run: python deploy_medallion.py
