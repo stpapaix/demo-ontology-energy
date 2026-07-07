@@ -30,3 +30,11 @@ LAKEHOUSE_NAMES = {
 
 # OneLake DFS endpoint (same for every workspace/lakehouse).
 ONELAKE_ACCOUNT = "onelake.dfs.fabric.microsoft.com"
+
+
+def onelake_table_path(lakehouse_id: str, table_name: str) -> str:
+    """ABFS path to a Delta table inside a lakehouse's Tables/ area on OneLake."""
+    return (
+        f"abfss://{WORKSPACE_ID}@{ONELAKE_ACCOUNT}/"
+        f"{lakehouse_id}/Tables/{table_name}"
+    )

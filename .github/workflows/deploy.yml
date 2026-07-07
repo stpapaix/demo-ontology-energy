@@ -41,6 +41,8 @@ jobs:
       - name: Verify service-principal authentication
         run: python src/fabric_client.py
 
-      - name: Deploy energy medallion (lakehouses + Delta tables)
+      - name: Deploy energy medallion (lakehouses, tables, bronze->silver->gold)
         working-directory: src
+        env:
+          SEED_DEMO_DATA: "true"
         run: python deploy_medallion.py
