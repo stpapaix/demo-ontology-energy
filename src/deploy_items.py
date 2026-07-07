@@ -161,7 +161,7 @@ def deploy_pipeline(display_name: str, notebook_id: str, activity_name: str) -> 
                         "timeout": "0.12:00:00", "retry": 0, "retryIntervalInSeconds": 30,
                         "secureOutput": False, "secureInput": False,
                     },
-                    "typeProperties": {"notebookId": notebook_id, "workspaceId": WORKSPACE_ID},
+                    "typeProperties": {"notebookId": notebook_id.lower(), "workspaceId": WORKSPACE_ID.lower()},
                 }
             ]
         }
