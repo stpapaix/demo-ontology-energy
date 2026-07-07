@@ -1,0 +1,36 @@
+name: Deploy Fabric medallion
+
+on:
+  workflow_dispatch:        # manual trigger from the Actions tab
+  push:
+    branches: [ main ]
+    paths:
+      - "src/**"
+      - "requirements.txt"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Non-secret identifiers come from repository Variables
+      AZURE_TENANT_ID:     ${{ vars.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID:     ${{ vars.AZURE_CLIENT_ID }}
+      FABRIC_WORKSPACE_ID: ${{ vars.FABRIC_WORKSPACE_ID }}
+      # The sensitive value comes from an encrypted repository Secret
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Deploy to Microsoft Fabric
+        run: python src/fabric_client.py
