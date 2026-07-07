@@ -131,22 +131,42 @@ keys, and deduplication on business keys.
 | `src/config.py` | Workspace / lakehouse config + OneLake paths |
 | `src/schemas.py` | Per-layer Delta table schemas (`LAYER_TABLES`) |
 | `src/provision_lakehouses.py` | Creates the 3 lakehouses via REST |
-| `src/create_delta_tables.py` | Creates the per-layer Delta tables |
-| `src/seed_bronze.py` | Seeds bronze with demo data |
-| `src/transform.py` | Pipeline: bronze → silver → gold |
+| `src/create_delta_tables.py` | Creates the per-layer Delta tables (empty) |
 | `src/cleanup.py` | Resets lakehouse tables for a clean redeploy |
-| `src/deploy_medallion.py` | End-to-end orchestrator |
+| `src/deploy_items.py` | Deploys Fabric notebooks + data pipelines via REST |
+| `src/deploy_medallion.py` | End-to-end deployment orchestrator |
+| `notebooks/nb_seed_dimensions.py` | (manual) seeds 20 sites + 100 devices into bronze |
+| `notebooks/nb_seed_facts.py` | (manual, repeatable) appends >1000 readings + >1000 billing rows |
+| `notebooks/nb_bronze_to_silver.py` | bronze → silver transform (run by pipeline) |
+| `notebooks/nb_silver_to_gold.py` | silver → gold transform (run by pipeline) |
 | `.github/workflows/deploy.yml` | CI/CD deployment pipeline |
 
 ## Deployment
 
-Deployed automatically by GitHub Actions (**Deploy Fabric medallion**) on push to
-`main`, or manually via the Actions tab. Configuration:
+The GitHub Actions workflow (**Deploy Fabric medallion**) deploys the **structure
+only**: it provisions the 3 lakehouses, creates the Delta tables **empty**, and
+deploys 4 Fabric notebooks + 2 data pipelines. It does **not** load or transform
+data. Configuration:
 
 - **Secret**: `AZURE_CLIENT_SECRET`
 - **Variables**: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `FABRIC_WORKSPACE_ID`
-- **Job env**: `RESET_TABLES` (wipe & rebuild), `SEED_DEMO_DATA` (load demo rows)
+- **Job env**: `RESET_TABLES` (wipe & recreate empty tables)
 
 The service principal requires the *"Service principals can use Fabric APIs"*
 tenant setting, a **Member/Contributor** role on the workspace, and the workspace
 must be on a **Fabric capacity**.
+
+## Running the demo (manual, inside Fabric)
+
+After deployment the tables are empty. Load and transform data by running the
+Fabric artifacts in this order:
+
+1. **`nb_seed_dimensions`** — run once. Creates 20 sites + 100 devices in bronze.
+2. **`nb_seed_facts`** — run as many times as you like. Each run appends
+   >1000 random meter readings and >1000 billing rows, coherent with the
+   sites/devices from step 1.
+3. **`pl_bronze_to_silver`** pipeline — cleans/conforms bronze into silver.
+4. **`pl_silver_to_gold`** pipeline — aggregates silver into gold KPIs.
+
+The two pipelines each run their corresponding notebook
+(`nb_bronze_to_silver`, `nb_silver_to_gold`).
