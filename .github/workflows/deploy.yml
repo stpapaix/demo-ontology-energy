@@ -46,5 +46,5 @@ jobs:
       - name: Deploy energy medallion (empty tables + notebooks + pipelines)
         working-directory: src
         env:
-          RESET_TABLES: "true"
+          RESET_TABLES: "false"
         run: python deploy_medallion.py
