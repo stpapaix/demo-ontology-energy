@@ -137,6 +137,7 @@ keys, and deduplication on business keys.
 | `src/deploy_medallion.py` | End-to-end deployment orchestrator |
 | `notebooks/nb_seed_dimensions.py` | (manual) seeds 20 sites + 100 devices into bronze |
 | `notebooks/nb_seed_facts.py` | (manual, repeatable) appends >1000 readings + >1000 billing rows |
+| `notebooks/nb_truncate_all.py` | (manual) deletes all rows from every table (schemas kept) |
 | `notebooks/nb_bronze_to_silver.py` | bronze → silver transform (run by pipeline) |
 | `notebooks/nb_silver_to_gold.py` | silver → gold transform (run by pipeline) |
 | `.github/workflows/deploy.yml` | CI/CD deployment pipeline |

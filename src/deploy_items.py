@@ -175,6 +175,7 @@ def deploy_items() -> None:
     print("\nDeploying notebooks...")
     deploy_notebook("nb_seed_dimensions", "nb_seed_dimensions.py")
     deploy_notebook("nb_seed_facts", "nb_seed_facts.py")
+    deploy_notebook("nb_truncate_all", "nb_truncate_all.py")
     nb_b2s = deploy_notebook("nb_bronze_to_silver", "nb_bronze_to_silver.py")
     nb_s2g = deploy_notebook("nb_silver_to_gold", "nb_silver_to_gold.py")
 
