@@ -59,8 +59,8 @@ _RAW_BILLING = [
 def _write_raw(spark, bronze_id, table, rows, cols, source_file):
     df = (
         spark.createDataFrame(rows, cols)
-        .withColumn("_ingested_at", F.current_timestamp())
-        .withColumn("_source_file", F.lit(source_file))
+        .withColumn("ingested_at", F.current_timestamp())
+        .withColumn("source_file", F.lit(source_file))
     )
     (
         df.write.format("delta")

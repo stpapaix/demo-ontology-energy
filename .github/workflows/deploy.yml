@@ -44,5 +44,6 @@ jobs:
       - name: Deploy energy medallion (lakehouses, tables, bronze->silver->gold)
         working-directory: src
         env:
+          RESET_TABLES: "true"
           SEED_DEMO_DATA: "true"
         run: python deploy_medallion.py

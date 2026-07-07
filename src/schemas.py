@@ -25,8 +25,8 @@ from pyspark.sql.types import (
 # ---------------------------------------------------------------------------
 
 _INGEST_META = [
-    StructField("_ingested_at", TimestampType()),
-    StructField("_source_file", StringType()),
+    StructField("ingested_at", TimestampType()),
+    StructField("source_file", StringType()),
 ]
 
 
