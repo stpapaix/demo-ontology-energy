@@ -8,6 +8,7 @@ on:
       - "src/**"
       - "requirements.txt"
       - ".github/workflows/deploy.yml"
+      - "README.md"
 
 jobs:
   deploy:
