@@ -5,19 +5,33 @@
 # dimension tables so re-running gives a clean, consistent set.
 
 # %%
-# --- Configuration: resolve workspace and build OneLake table paths ---
+# --- Configuration: resolve lakehouse paths on OneLake (GUID form) ---
 import notebookutils
 from pyspark.sql import functions as F
 
-ONELAKE = "onelake.dfs.fabric.microsoft.com"
 BRONZE, SILVER, GOLD = "lh_bronze", "lh_silver", "lh_gold"
 
-_ctx = notebookutils.runtime.context
-WORKSPACE_ID = _ctx.get("currentWorkspaceId") or "93722789-8888-4BAD-9EF1-5AFA52BA442F"
+_LH_BASE = {}
+
+
+def _get(obj, key):
+    return obj[key] if isinstance(obj, dict) else getattr(obj, key)
+
+
+def _lakehouse_base(name: str) -> str:
+    """Canonical OneLake abfss base path for a lakehouse, resolved by name."""
+    if name not in _LH_BASE:
+        info = notebookutils.lakehouse.get(name)
+        try:
+            _LH_BASE[name] = _get(_get(info, "properties"), "abfsPath")
+        except Exception:
+            ws = notebookutils.runtime.context.get("currentWorkspaceId")
+            _LH_BASE[name] = f"abfss://{ws}@onelake.dfs.fabric.microsoft.com/{_get(info, 'id')}"
+    return _LH_BASE[name]
 
 
 def tpath(lakehouse_name: str, table: str) -> str:
-    return f"abfss://{WORKSPACE_ID}@{ONELAKE}/{lakehouse_name}.Lakehouse/Tables/{table}"
+    return f"{_lakehouse_base(lakehouse_name)}/Tables/{table}"
 
 # %%
 # --- Generate dimension rows (string-typed, bronze convention) ---
