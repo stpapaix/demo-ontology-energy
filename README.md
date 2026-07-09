@@ -118,6 +118,7 @@ Cleaned and correctly typed. Three dimensions (region, site, device) and two fac
 **`kpi_co2_by_region`** — sustainability & cost KPI by region
 | Column | Type | Source |
 |--------|------|--------|
+| region_id | string | dim_site.region_id (FK → dim_region) |
 | region | string | dim_site.region |
 | billing_period | string | group key |
 | total_co2_kg | double | sum(co2_emissions_kg) |
@@ -129,10 +130,62 @@ Cleaned and correctly typed. Three dimensions (region, site, device) and two fac
 | From (Silver) | To (Gold) | Logic |
 |---------------|-----------|-------|
 | `fact_energy_consumption` | `agg_daily_consumption_by_site` | group by `site_id`, `reading_date`; sum/avg/count |
-| `fact_energy_cost` + `dim_site` | `kpi_co2_by_region` | join on `site_id`; group by `region`, `billing_period`; sum CO₂/energy/cost |
+| `fact_energy_cost` + `dim_site` | `kpi_co2_by_region` | join on `site_id`; group by `region_id`, `region`, `billing_period`; sum CO₂/energy/cost |
 
 Bronze → Silver applies type casting, `reading_date` derivation, null filtering on
 keys, and deduplication on business keys.
+
+## Ontology
+
+A business-oriented **ontology** is layered on top of the medallion: **entities &
+relationships** come from Silver (conformed star model), **measures** from Gold.
+The formal definition lives in [`ontology/energy_ontology.json`](ontology/energy_ontology.json).
+
+```mermaid
+classDiagram
+    class Region
+    class Site
+    class Device
+    class EnergyReading
+    class BillingRecord
+    Site "*" --> "1" Region : locatedIn
+    Site "1" --> "*" Device : hasDevice
+    Device "1" --> "*" EnergyReading : produces
+    EnergyReading "*" --> "1" Site : measuredAt
+    Site "1" --> "*" BillingRecord : billedFor
+```
+
+**Classes → source (Silver):**
+
+| Class | Table | Key |
+|-------|-------|-----|
+| Region | `dim_region` | region_id |
+| Site | `dim_site` | site_id |
+| Device | `dim_device` | device_id |
+| EnergyReading | `fact_energy_consumption` | reading_id |
+| BillingRecord | `fact_energy_cost` | cost_id |
+
+**Relationships (from silver keys):** `locatedIn` (Site→Region via region_id),
+`hasDevice` (Site→Device), `produces` (Device→EnergyReading), `measuredAt`
+(EnergyReading→Site), `billedFor` (Site→BillingRecord).
+
+**Measures (from Gold):** daily energy & power factor per Site
+(`agg_daily_consumption_by_site`); CO₂ / energy / cost per Region
+(`kpi_co2_by_region`).
+
+**Serving layer** — `nb_build_ontology` (run by the `pl_build_ontology` pipeline)
+materializes denormalized, business-named entity tables in `lh_gold`:
+
+| Table | Class | Business view |
+|-------|-------|---------------|
+| `onto_region` | Region | regions |
+| `onto_site` | Site | site + region names resolved |
+| `onto_device` | Device | device + its site & region |
+| `onto_billing` | BillingRecord | billing + site & region |
+| `onto_site_360` | Site | per-site summary: device count, total energy, cost, CO₂ |
+
+These are ideal to bind to a **Power BI semantic model** or **Digital Twin
+Builder** ontology for a business-facing view.
 
 ## Repository layout
 
@@ -153,6 +206,8 @@ keys, and deduplication on business keys.
 | `notebooks/nb_truncate_all.py` | (manual) deletes all rows from every table (schemas kept) |
 | `notebooks/nb_bronze_to_silver.py` | bronze → silver transform (run by pipeline) |
 | `notebooks/nb_silver_to_gold.py` | silver → gold transform (run by pipeline) |
+| `notebooks/nb_build_ontology.py` | builds the `onto_*` ontology serving layer (run by pipeline) |
+| `ontology/energy_ontology.json` | formal ontology definition (classes, relationships, measures) |
 | `.github/workflows/deploy.yml` | CI/CD deployment pipeline |
 
 ## Deployment
@@ -182,9 +237,11 @@ identity and resolve lakehouse paths at runtime via
 | `nb_seed_facts` | Notebook | manual (repeatable) | Append >1000 readings + >1000 billing rows |
 | `nb_bronze_to_silver` | Notebook | `pl_bronze_to_silver` | Clean / typecast / dedup bronze → silver |
 | `nb_silver_to_gold` | Notebook | `pl_silver_to_gold` | Aggregate silver → gold KPIs |
+| `nb_build_ontology` | Notebook | `pl_build_ontology` | Build `onto_*` business ontology serving layer in gold |
 | `nb_truncate_all` | Notebook | manual | Delete all rows from every table (schemas kept) |
 | `pl_bronze_to_silver` | Data pipeline | manual | Runs `nb_bronze_to_silver` |
 | `pl_silver_to_gold` | Data pipeline | manual | Runs `nb_silver_to_gold` |
+| `pl_build_ontology` | Data pipeline | manual | Runs `nb_build_ontology` |
 
 ## Running the demo (manual, inside Fabric)
 
@@ -198,6 +255,8 @@ artifacts **in this order**:
    step 1.
 3. **`pl_bronze_to_silver`** pipeline — cleans/conforms bronze into silver.
 4. **`pl_silver_to_gold`** pipeline — aggregates silver into gold KPIs.
+5. **`pl_build_ontology`** pipeline — builds the `onto_*` business ontology
+   serving layer in gold.
 
 Order matters: each step overwrites its target from its source, so bronze must
 contain data before running the pipelines.

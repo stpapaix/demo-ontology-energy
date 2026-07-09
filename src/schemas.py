@@ -137,6 +137,7 @@ AGG_DAILY_CONSUMPTION_BY_SITE = StructType(
 
 KPI_CO2_BY_REGION = StructType(
     [
+        StructField("region_id", StringType()),
         StructField("region", StringType()),
         StructField("billing_period", StringType()),
         StructField("total_co2_kg", DoubleType()),

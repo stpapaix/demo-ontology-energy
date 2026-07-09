@@ -136,10 +136,10 @@ def silver_to_gold(spark: SparkSession, silver_id: str, gold_id: str) -> None:
     _write(agg_daily, gold_id, "agg_daily_consumption_by_site")
 
     cost = _read(spark, silver_id, "fact_energy_cost")
-    site_region = _read(spark, silver_id, "dim_site").select("site_id", "region")
+    site_region = _read(spark, silver_id, "dim_site").select("site_id", "region_id", "region")
     kpi_co2 = (
         cost.join(site_region, on="site_id", how="left")
-        .groupBy("region", "billing_period")
+        .groupBy("region_id", "region", "billing_period")
         .agg(
             F.sum("co2_emissions_kg").alias("total_co2_kg"),
             F.sum("energy_consumed_kwh").alias("total_energy_kwh"),

@@ -49,12 +49,12 @@ agg_daily.write.format("delta").mode("overwrite").option("overwriteSchema", "tru
 print(f"agg_daily_consumption_by_site: {agg_daily.count()} rows")
 
 # %%
-# --- kpi_co2_by_region ---
+# --- kpi_co2_by_region (keyed on region_id) ---
 cost = spark.read.format("delta").load(tpath(SILVER, "fact_energy_cost"))
-site_region = spark.read.format("delta").load(tpath(SILVER, "dim_site")).select("site_id", "region")
+site_region = spark.read.format("delta").load(tpath(SILVER, "dim_site")).select("site_id", "region_id", "region")
 kpi_co2 = (
     cost.join(site_region, on="site_id", how="left")
-    .groupBy("region", "billing_period")
+    .groupBy("region_id", "region", "billing_period")
     .agg(
         F.sum("co2_emissions_kg").alias("total_co2_kg"),
         F.sum("energy_consumed_kwh").alias("total_energy_kwh"),

@@ -171,17 +171,19 @@ def deploy_pipeline(display_name: str, notebook_id: str, activity_name: str) -> 
 
 
 def deploy_items() -> None:
-    """Deploy the four notebooks and the two data pipelines."""
+    """Deploy the notebooks and the data pipelines."""
     print("\nDeploying notebooks...")
     deploy_notebook("nb_seed_dimensions", "nb_seed_dimensions.py")
     deploy_notebook("nb_seed_facts", "nb_seed_facts.py")
     deploy_notebook("nb_truncate_all", "nb_truncate_all.py")
     nb_b2s = deploy_notebook("nb_bronze_to_silver", "nb_bronze_to_silver.py")
     nb_s2g = deploy_notebook("nb_silver_to_gold", "nb_silver_to_gold.py")
+    nb_onto = deploy_notebook("nb_build_ontology", "nb_build_ontology.py")
 
     print("\nDeploying pipelines...")
     deploy_pipeline("pl_bronze_to_silver", nb_b2s, "Run bronze to silver")
     deploy_pipeline("pl_silver_to_gold", nb_s2g, "Run silver to gold")
+    deploy_pipeline("pl_build_ontology", nb_onto, "Run build ontology")
 
 
 if __name__ == "__main__":
