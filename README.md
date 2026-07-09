@@ -208,6 +208,7 @@ in Fabric once the silver pipeline has loaded data.
 | `src/cleanup.py` | Resets lakehouse tables for a clean redeploy |
 | `src/deploy_items.py` | Deploys Fabric notebooks + data pipelines via REST |
 | `src/deploy_ontology.py` | Deploys the Fabric IQ Ontology item (binds to silver) |
+| `src/deploy_semantic_model.py` | Deploys a Direct Lake semantic model (ontology design) |
 | `src/deploy_data_agent.py` | Deploys the Fabric Data Agent (NL questions over silver) |
 | `src/deploy_medallion.py` | End-to-end deployment orchestrator |
 | `notebooks/nb_seed_dimensions.py` | (manual) seeds 20 sites + 100 devices into bronze |
@@ -250,6 +251,7 @@ identity and resolve lakehouse paths at runtime via
 | `pl_bronze_to_silver` | Data pipeline | manual | Runs `nb_bronze_to_silver` |
 | `pl_silver_to_gold` | Data pipeline | manual | Runs `nb_silver_to_gold` |
 | `energy_ontology` | Ontology (Fabric IQ) | — | Entity types + relationships bound to silver tables |
+| `energy_semantic_model` | Semantic model (Direct Lake) | — | Same entities/relationships as the ontology, over silver |
 | `energy_data_agent` | Data Agent | — | Natural-language Q&A grounded on the silver model |
 
 ## Running the demo (manual, inside Fabric)
