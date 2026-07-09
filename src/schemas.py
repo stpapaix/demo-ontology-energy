@@ -68,6 +68,9 @@ DIM_SITE = StructType(
         StructField("site_type", StringType()),
         StructField("contracted_power_kw", DoubleType()),
         StructField("commissioned_date", DateType()),
+        StructField("total_energy_kwh", DoubleType()),
+        StructField("total_energy_cost", DoubleType()),
+        StructField("total_co2_kg", DoubleType()),
     ]
 )
 
@@ -120,15 +123,6 @@ FACT_ENERGY_COST = StructType(
     ]
 )
 
-SITE_SUMMARY = StructType(
-    [
-        StructField("site_id", StringType(), nullable=False),
-        StructField("total_energy_kwh", DoubleType()),
-        StructField("total_energy_cost", DoubleType()),
-        StructField("total_co2_kg", DoubleType()),
-    ]
-)
-
 # ---------------------------------------------------------------------------
 # Gold: aggregated, business-ready tables and KPIs.
 # ---------------------------------------------------------------------------
@@ -170,7 +164,6 @@ LAYER_TABLES = {
         "dim_device": (DIM_DEVICE, []),
         "fact_energy_consumption": (FACT_ENERGY_CONSUMPTION, ["reading_date"]),
         "fact_energy_cost": (FACT_ENERGY_COST, []),
-        "site_summary": (SITE_SUMMARY, []),
     },
     "gold": {
         "agg_daily_consumption_by_site": (AGG_DAILY_CONSUMPTION_BY_SITE, []),

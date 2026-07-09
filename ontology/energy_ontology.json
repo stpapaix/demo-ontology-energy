@@ -34,8 +34,7 @@
         { "name": "total_co2_kg", "valueType": "Double" }
       ],
       "bindings": [
-        { "table": "dim_site", "columns": ["site_id", "site_name", "country", "region_id", "site_type", "contracted_power_kw"] },
-        { "table": "site_summary", "columns": ["site_id", "total_energy_kwh", "total_energy_cost", "total_co2_kg"] }
+        { "table": "dim_site", "columns": ["site_id", "site_name", "country", "region_id", "site_type", "contracted_power_kw", "total_energy_kwh", "total_energy_cost", "total_co2_kg"] }
       ]
     },
     {

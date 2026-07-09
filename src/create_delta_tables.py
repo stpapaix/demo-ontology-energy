@@ -17,7 +17,7 @@ def create_tables(spark: SparkSession, layer: str, lakehouse_id: str) -> None:
     for table_name, (schema, partition_cols) in LAYER_TABLES[layer].items():
         path = onelake_table_path(lakehouse_id, table_name)
         empty_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), schema)
-        writer = empty_df.write.format("delta").mode("ignore")
+        writer = empty_df.write.format("delta").mode("append").option("mergeSchema", "true")
         if partition_cols:
             writer = writer.partitionBy(*partition_cols)
         writer.save(path)

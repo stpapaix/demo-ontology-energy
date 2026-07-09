@@ -54,25 +54,6 @@ dim_region.write.format("delta").mode("overwrite").option("overwriteSchema", "tr
 print(f"dim_region: {dim_region.count()} rows")
 
 # %%
-# --- dim_site (region_id links to dim_region) ---
-dim_site = (
-    spark.read.format("delta").load(tpath(BRONZE, "raw_site"))
-    .select(
-        "site_id", "site_name", "country", "region",
-        F.col("latitude").cast("double"),
-        F.col("longitude").cast("double"),
-        "site_type",
-        F.col("contracted_power_kw").cast("double"),
-        F.to_date("commissioned_date").alias("commissioned_date"),
-    )
-    .withColumn("region_id", F.md5(F.col("region")))
-    .filter(F.col("site_id").isNotNull())
-    .dropDuplicates(["site_id"])
-)
-dim_site.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(tpath(SILVER, "dim_site"))
-print(f"dim_site: {dim_site.count()} rows")
-
-# %%
 # --- dim_device ---
 dim_device = (
     spark.read.format("delta").load(tpath(BRONZE, "raw_device"))
@@ -131,17 +112,28 @@ fact_cost.write.format("delta").mode("overwrite").option("overwriteSchema", "tru
 print(f"fact_energy_cost: {fact_cost.count()} rows")
 
 # %%
-# --- site_summary (per-site totals for the ontology Site entity) ---
+# --- dim_site enriched with per-site totals (single table for the ontology Site entity) ---
 energy_by_site = fact_consumption.groupBy("site_id").agg(F.sum("energy_kwh").alias("total_energy_kwh"))
 cost_by_site = fact_cost.groupBy("site_id").agg(
     F.sum("energy_cost").alias("total_energy_cost"),
     F.sum("co2_emissions_kg").alias("total_co2_kg"),
 )
-site_summary = (
-    dim_site.select("site_id")
+dim_site = (
+    spark.read.format("delta").load(tpath(BRONZE, "raw_site"))
+    .select(
+        "site_id", "site_name", "country", "region",
+        F.col("latitude").cast("double"),
+        F.col("longitude").cast("double"),
+        "site_type",
+        F.col("contracted_power_kw").cast("double"),
+        F.to_date("commissioned_date").alias("commissioned_date"),
+    )
+    .withColumn("region_id", F.md5(F.col("region")))
+    .filter(F.col("site_id").isNotNull())
+    .dropDuplicates(["site_id"])
     .join(energy_by_site, "site_id", "left")
     .join(cost_by_site, "site_id", "left")
     .na.fill(0, ["total_energy_kwh", "total_energy_cost", "total_co2_kg"])
 )
-site_summary.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(tpath(SILVER, "site_summary"))
-print(f"site_summary: {site_summary.count()} rows")
+dim_site.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(tpath(SILVER, "dim_site"))
+print(f"dim_site: {dim_site.count()} rows")

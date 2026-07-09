@@ -46,25 +46,6 @@ def bronze_to_silver(spark: SparkSession, bronze_id: str, silver_id: str) -> Non
     )
     _write(dim_region, silver_id, "dim_region")
 
-    dim_site = (
-        _read(spark, bronze_id, "raw_site")
-        .select(
-            F.col("site_id"),
-            F.col("site_name"),
-            F.col("country"),
-            F.col("region"),
-            F.col("latitude").cast("double"),
-            F.col("longitude").cast("double"),
-            F.col("site_type"),
-            F.col("contracted_power_kw").cast("double"),
-            F.to_date("commissioned_date").alias("commissioned_date"),
-        )
-        .withColumn("region_id", F.md5(F.col("region")))
-        .filter(F.col("site_id").isNotNull())
-        .dropDuplicates(["site_id"])
-    )
-    _write(dim_site, silver_id, "dim_site")
-
     dim_device = (
         _read(spark, bronze_id, "raw_device")
         .select(
@@ -125,13 +106,27 @@ def bronze_to_silver(spark: SparkSession, bronze_id: str, silver_id: str) -> Non
         F.sum("energy_cost").alias("total_energy_cost"),
         F.sum("co2_emissions_kg").alias("total_co2_kg"),
     )
-    site_summary = (
-        dim_site.select("site_id")
+    dim_site = (
+        _read(spark, bronze_id, "raw_site")
+        .select(
+            F.col("site_id"),
+            F.col("site_name"),
+            F.col("country"),
+            F.col("region"),
+            F.col("latitude").cast("double"),
+            F.col("longitude").cast("double"),
+            F.col("site_type"),
+            F.col("contracted_power_kw").cast("double"),
+            F.to_date("commissioned_date").alias("commissioned_date"),
+        )
+        .withColumn("region_id", F.md5(F.col("region")))
+        .filter(F.col("site_id").isNotNull())
+        .dropDuplicates(["site_id"])
         .join(energy_by_site, "site_id", "left")
         .join(cost_by_site, "site_id", "left")
         .na.fill(0, ["total_energy_kwh", "total_energy_cost", "total_co2_kg"])
     )
-    _write(site_summary, silver_id, "site_summary")
+    _write(dim_site, silver_id, "dim_site")
 
 
 def silver_to_gold(spark: SparkSession, silver_id: str, gold_id: str) -> None:
