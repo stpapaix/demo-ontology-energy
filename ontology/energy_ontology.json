@@ -7,18 +7,19 @@
   "entities": [
     {
       "name": "Region",
-      "table": "dim_region",
       "key": "region_id",
       "displayNameProperty": "region_name",
       "properties": [
         { "name": "region_id", "valueType": "String" },
         { "name": "region_code", "valueType": "String" },
         { "name": "region_name", "valueType": "String" }
+      ],
+      "bindings": [
+        { "table": "dim_region", "columns": ["region_id", "region_code", "region_name"] }
       ]
     },
     {
       "name": "Site",
-      "table": "dim_site",
       "key": "site_id",
       "displayNameProperty": "site_name",
       "properties": [
@@ -27,12 +28,18 @@
         { "name": "country", "valueType": "String" },
         { "name": "region_id", "valueType": "String" },
         { "name": "site_type", "valueType": "String" },
-        { "name": "contracted_power_kw", "valueType": "Double" }
+        { "name": "contracted_power_kw", "valueType": "Double" },
+        { "name": "total_energy_kwh", "valueType": "Double" },
+        { "name": "total_energy_cost", "valueType": "Double" },
+        { "name": "total_co2_kg", "valueType": "Double" }
+      ],
+      "bindings": [
+        { "table": "dim_site", "columns": ["site_id", "site_name", "country", "region_id", "site_type", "contracted_power_kw"] },
+        { "table": "site_summary", "columns": ["site_id", "total_energy_kwh", "total_energy_cost", "total_co2_kg"] }
       ]
     },
     {
       "name": "Device",
-      "table": "dim_device",
       "key": "device_id",
       "displayNameProperty": "device_id",
       "properties": [
@@ -42,11 +49,13 @@
         { "name": "model", "valueType": "String" },
         { "name": "measurement_unit", "valueType": "String" },
         { "name": "is_active", "valueType": "Boolean" }
+      ],
+      "bindings": [
+        { "table": "dim_device", "columns": ["device_id", "site_id", "device_type", "model", "measurement_unit", "is_active"] }
       ]
     },
     {
       "name": "EnergyReading",
-      "table": "fact_energy_consumption",
       "key": "reading_id",
       "displayNameProperty": "reading_id",
       "properties": [
@@ -57,11 +66,13 @@
         { "name": "energy_kwh", "valueType": "Double" },
         { "name": "active_power_kw", "valueType": "Double" },
         { "name": "power_factor", "valueType": "Double" }
+      ],
+      "bindings": [
+        { "table": "fact_energy_consumption", "columns": ["reading_id", "device_id", "site_id", "timestamp", "energy_kwh", "active_power_kw", "power_factor"] }
       ]
     },
     {
       "name": "BillingRecord",
-      "table": "fact_energy_cost",
       "key": "cost_id",
       "displayNameProperty": "cost_id",
       "properties": [
@@ -71,6 +82,9 @@
         { "name": "energy_cost", "valueType": "Double" },
         { "name": "co2_emissions_kg", "valueType": "Double" },
         { "name": "currency", "valueType": "String" }
+      ],
+      "bindings": [
+        { "table": "fact_energy_cost", "columns": ["cost_id", "site_id", "billing_period", "energy_cost", "co2_emissions_kg", "currency"] }
       ]
     }
   ],

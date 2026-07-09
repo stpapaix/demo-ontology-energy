@@ -61,7 +61,7 @@ def _build_definition(model: dict, silver_id: str) -> dict:
         entities[entity["name"]] = {
             "id": entity_id, "prop_ids": prop_ids, "props": props,
             "key_prop": prop_ids[entity["key"]], "display_prop": prop_ids[display_name],
-            "table": entity["table"], "entity": entity,
+            "entity": entity,
         }
 
     parts = [
@@ -77,21 +77,22 @@ def _build_definition(model: dict, silver_id: str) -> dict:
             "displayNamePropertyId": info["display_prop"],
             "namespaceType": "Custom", "visibility": "Visible", "properties": info["props"],
         }))
-        binding_guid = _guid("binding", entity["name"])
-        parts.append(_part(f"EntityTypes/{info['id']}/DataBindings/{binding_guid}.json", {
-            "id": binding_guid,
-            "dataBindingConfiguration": {
-                "dataBindingType": "NonTimeSeries",
-                "propertyBindings": [
-                    {"sourceColumnName": prop["name"], "targetPropertyId": info["prop_ids"][prop["name"]]}
-                    for prop in entity["properties"]
-                ],
-                "sourceTableProperties": {
-                    "sourceType": "LakehouseTable", "workspaceId": workspace, "itemId": silver_id,
-                    "sourceTableName": entity["table"], "sourceSchema": schema,
+        for binding in entity["bindings"]:
+            binding_guid = _guid("binding", entity["name"], binding["table"])
+            parts.append(_part(f"EntityTypes/{info['id']}/DataBindings/{binding_guid}.json", {
+                "id": binding_guid,
+                "dataBindingConfiguration": {
+                    "dataBindingType": "NonTimeSeries",
+                    "propertyBindings": [
+                        {"sourceColumnName": col, "targetPropertyId": info["prop_ids"][col]}
+                        for col in binding["columns"]
+                    ],
+                    "sourceTableProperties": {
+                        "sourceType": "LakehouseTable", "workspaceId": workspace, "itemId": silver_id,
+                        "sourceTableName": binding["table"], "sourceSchema": schema,
+                    },
                 },
-            },
-        }))
+            }))
 
     for rel in model["relationships"]:
         rel_id = _bigint("rel", rel["name"])

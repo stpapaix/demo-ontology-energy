@@ -118,6 +118,21 @@ def bronze_to_silver(spark: SparkSession, bronze_id: str, silver_id: str) -> Non
     )
     _write(fact_cost, silver_id, "fact_energy_cost")
 
+    energy_by_site = fact_consumption.groupBy("site_id").agg(
+        F.sum("energy_kwh").alias("total_energy_kwh")
+    )
+    cost_by_site = fact_cost.groupBy("site_id").agg(
+        F.sum("energy_cost").alias("total_energy_cost"),
+        F.sum("co2_emissions_kg").alias("total_co2_kg"),
+    )
+    site_summary = (
+        dim_site.select("site_id")
+        .join(energy_by_site, "site_id", "left")
+        .join(cost_by_site, "site_id", "left")
+        .na.fill(0, ["total_energy_kwh", "total_energy_cost", "total_co2_kg"])
+    )
+    _write(site_summary, silver_id, "site_summary")
+
 
 def silver_to_gold(spark: SparkSession, silver_id: str, gold_id: str) -> None:
     """Aggregate conformed silver facts into business-ready gold tables & KPIs."""

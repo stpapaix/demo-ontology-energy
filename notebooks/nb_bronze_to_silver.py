@@ -129,3 +129,19 @@ fact_cost = (
 )
 fact_cost.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(tpath(SILVER, "fact_energy_cost"))
 print(f"fact_energy_cost: {fact_cost.count()} rows")
+
+# %%
+# --- site_summary (per-site totals for the ontology Site entity) ---
+energy_by_site = fact_consumption.groupBy("site_id").agg(F.sum("energy_kwh").alias("total_energy_kwh"))
+cost_by_site = fact_cost.groupBy("site_id").agg(
+    F.sum("energy_cost").alias("total_energy_cost"),
+    F.sum("co2_emissions_kg").alias("total_co2_kg"),
+)
+site_summary = (
+    dim_site.select("site_id")
+    .join(energy_by_site, "site_id", "left")
+    .join(cost_by_site, "site_id", "left")
+    .na.fill(0, ["total_energy_kwh", "total_energy_cost", "total_co2_kg"])
+)
+site_summary.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(tpath(SILVER, "site_summary"))
+print(f"site_summary: {site_summary.count()} rows")
