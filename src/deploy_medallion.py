@@ -14,6 +14,7 @@ import os
 
 from cleanup import reset_lakehouses
 from create_delta_tables import create_all_tables
+from deploy_data_agent import deploy_data_agent
 from deploy_items import deploy_items
 from deploy_ontology import deploy_ontology
 from provision_lakehouses import provision_lakehouses
@@ -36,7 +37,9 @@ def main() -> None:
 
     deploy_ontology()
 
-    print("\n=== Deployment complete: empty tables + notebooks + pipelines + ontology ===")
+    deploy_data_agent()
+
+    print("\n=== Deployment complete: empty tables + notebooks + pipelines + ontology + data agent ===")
 
 
 if __name__ == "__main__":

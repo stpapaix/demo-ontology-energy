@@ -181,7 +181,21 @@ The ontology is deployed automatically with the rest of the structure. It requir
 the **Ontology** preview to be enabled in the tenant, a Fabric capacity, and the
 service principal's Contributor role. Once deployed you can browse/query it in
 Fabric IQ and layer analytics or agents on top.
+## Data Agent
 
+A **Fabric Data Agent** (`energy_data_agent`) is deployed on top of the model so
+business users can ask natural-language questions ("total energy cost by region?",
+"which site emits the most CO2?"). It is grounded on the **silver** lakehouse (the
+same conformed tables the ontology binds to) and ships:
+
+- **AI instructions** describing the entities, joins, units, and the per-site totals on `dim_site`.
+- **Selected tables/columns** (dim_region, dim_site, dim_device, fact_energy_consumption, fact_energy_cost).
+- **Few-shot** question -> SQL examples so answers are accurate.
+
+Built by [`src/deploy_data_agent.py`](src/deploy_data_agent.py) via the
+`/workspaces/{id}/dataAgents` REST API. Requires the Data Agent preview + Fabric
+Copilot/AI to be enabled in the tenant. Ask it questions from the Data Agent
+experience in Fabric once the silver pipeline has loaded data.
 ## Repository layout
 
 | Path | Purpose |
@@ -196,6 +210,7 @@ Fabric IQ and layer analytics or agents on top.
 | `src/cleanup.py` | Resets lakehouse tables for a clean redeploy |
 | `src/deploy_items.py` | Deploys Fabric notebooks + data pipelines via REST |
 | `src/deploy_ontology.py` | Deploys the Fabric IQ Ontology item (binds to silver) |
+| `src/deploy_data_agent.py` | Deploys the Fabric Data Agent (NL questions over silver) |
 | `src/deploy_medallion.py` | End-to-end deployment orchestrator |
 | `notebooks/nb_seed_dimensions.py` | (manual) seeds 20 sites + 100 devices into bronze |
 | `notebooks/nb_seed_facts.py` | (manual, repeatable) appends >1000 readings + >1000 billing rows |
@@ -237,6 +252,7 @@ identity and resolve lakehouse paths at runtime via
 | `pl_bronze_to_silver` | Data pipeline | manual | Runs `nb_bronze_to_silver` |
 | `pl_silver_to_gold` | Data pipeline | manual | Runs `nb_silver_to_gold` |
 | `energy_ontology` | Ontology (Fabric IQ) | — | Entity types + relationships bound to silver tables |
+| `energy_data_agent` | Data Agent | — | Natural-language Q&A grounded on the silver model |
 
 ## Running the demo (manual, inside Fabric)
 
