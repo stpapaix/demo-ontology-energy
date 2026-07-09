@@ -36,17 +36,37 @@ TABLES = {
         ("is_active", "boolean", False),
     ],
     "fact_energy_consumption": [
-        ("reading_id", "string", True), ("device_id", "string", False), ("site_id", "string", False),
+        ("reading_id", "string", False), ("device_id", "string", False), ("site_id", "string", False),
         ("timestamp", "dateTime", False), ("active_power_kw", "double", False), ("energy_kwh", "double", False),
         ("voltage_v", "double", False), ("current_a", "double", False), ("power_factor", "double", False),
         ("reading_date", "dateTime", False),
     ],
     "fact_energy_cost": [
-        ("cost_id", "string", True), ("site_id", "string", False), ("billing_period", "string", False),
+        ("cost_id", "string", False), ("site_id", "string", False), ("billing_period", "string", False),
         ("energy_consumed_kwh", "double", False), ("peak_demand_kw", "double", False),
         ("tariff_rate", "double", False), ("energy_cost", "double", False),
         ("co2_emissions_kg", "double", False), ("currency", "string", False),
     ],
+}
+
+# Columns hidden from report authors: surrogate/foreign keys, the redundant dim_site[region]
+# text (use dim_region[region_name] instead), and the pre-aggregated dim_site snapshot columns
+# (the measures below are the live source of truth and never drift from the facts).
+HIDDEN_COLUMNS = {
+    ("dim_region", "region_id"),
+    ("dim_site", "site_id"), ("dim_site", "region_id"), ("dim_site", "region"),
+    ("dim_site", "total_energy_kwh"), ("dim_site", "total_energy_cost"), ("dim_site", "total_co2_kg"),
+    ("dim_device", "device_id"), ("dim_device", "site_id"),
+    ("fact_energy_consumption", "reading_id"), ("fact_energy_consumption", "device_id"),
+    ("fact_energy_consumption", "site_id"),
+    ("fact_energy_cost", "cost_id"), ("fact_energy_cost", "site_id"),
+}
+
+# Geo columns tagged so Power BI map visuals bind correctly.
+DATA_CATEGORY = {
+    ("dim_site", "latitude"): "Latitude",
+    ("dim_site", "longitude"): "Longitude",
+    ("dim_site", "country"): "Country",
 }
 
 # (fromTable[many], fromColumn, toTable[one], toColumn, isActive) - mirrors the ontology relationships.
@@ -65,9 +85,15 @@ MEASURES = {
     "fact_energy_cost": [
         ("Total Energy Cost", "SUM('fact_energy_cost'[energy_cost])", "#,##0.00"),
         ("Total CO2 (kg)", "SUM('fact_energy_cost'[co2_emissions_kg])", "#,##0"),
+        ("Cost per kWh", "DIVIDE([Total Energy Cost], [Total Energy (kWh)])", "#,##0.000"),
+        ("CO2 Intensity (kg/kWh)", "DIVIDE([Total CO2 (kg)], [Total Energy (kWh)])", "#,##0.000"),
     ],
     "fact_energy_consumption": [
         ("Total Energy (kWh)", "SUM('fact_energy_consumption'[energy_kwh])", "#,##0.00"),
+        ("Avg Power Factor", "AVERAGE('fact_energy_consumption'[power_factor])", "#,##0.00"),
+    ],
+    "dim_site": [
+        ("Site Count", "COUNTROWS('dim_site')", "#,##0"),
     ],
 }
 
@@ -104,6 +130,10 @@ def _table(table: str) -> dict:
         }
         if is_key:
             column["isKey"] = True
+        if (table, name) in HIDDEN_COLUMNS:
+            column["isHidden"] = True
+        if (table, name) in DATA_CATEGORY:
+            column["dataCategory"] = DATA_CATEGORY[(table, name)]
         columns.append(column)
 
     obj = {
