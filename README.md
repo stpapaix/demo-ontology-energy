@@ -135,11 +135,15 @@ Cleaned and correctly typed. Three dimensions (region, site, device) and two fac
 Bronze → Silver applies type casting, `reading_date` derivation, null filtering on
 keys, and deduplication on business keys.
 
-## Ontology
+## Ontology (Fabric IQ)
 
-A business-oriented **ontology** is layered on top of the medallion: **entities &
-relationships** come from Silver (conformed star model), **measures** from Gold.
-The formal definition lives in [`ontology/energy_ontology.json`](ontology/energy_ontology.json).
+A **Fabric IQ Ontology** item is deployed on top of the medallion. It semantically
+models the business entities and relationships and **binds** them to the silver
+lakehouse tables (via the lakehouse SQL endpoint) — **no data is copied**. The
+deploy source is [`ontology/energy_ontology.json`](ontology/energy_ontology.json),
+turned into a Fabric ontology definition by
+[`src/deploy_ontology.py`](src/deploy_ontology.py) and created via the
+`/workspaces/{id}/ontologies` REST API.
 
 ```mermaid
 classDiagram
@@ -151,41 +155,32 @@ classDiagram
     Site "*" --> "1" Region : locatedIn
     Site "1" --> "*" Device : hasDevice
     Device "1" --> "*" EnergyReading : produces
-    EnergyReading "*" --> "1" Site : measuredAt
     Site "1" --> "*" BillingRecord : billedFor
 ```
 
-**Classes → source (Silver):**
+**Entity types → bound silver table:**
 
-| Class | Table | Key |
-|-------|-------|-----|
+| Entity type | Bound table (dbo) | Key |
+|-------------|-------------------|-----|
 | Region | `dim_region` | region_id |
 | Site | `dim_site` | site_id |
 | Device | `dim_device` | device_id |
 | EnergyReading | `fact_energy_consumption` | reading_id |
 | BillingRecord | `fact_energy_cost` | cost_id |
 
-**Relationships (from silver keys):** `locatedIn` (Site→Region via region_id),
-`hasDevice` (Site→Device), `produces` (Device→EnergyReading), `measuredAt`
-(EnergyReading→Site), `billedFor` (Site→BillingRecord).
+**Relationship types (contextualized on silver tables):**
 
-**Measures (from Gold):** daily energy & power factor per Site
-(`agg_daily_consumption_by_site`); CO₂ / energy / cost per Region
-(`kpi_co2_by_region`).
+| Relationship | Source → Target | Binding table (keys) |
+|--------------|-----------------|----------------------|
+| `locatedIn` | Site → Region | `dim_site` (site_id → region_id) |
+| `hasDevice` | Site → Device | `dim_device` (site_id → device_id) |
+| `produces` | Device → EnergyReading | `fact_energy_consumption` (device_id → reading_id) |
+| `billedFor` | Site → BillingRecord | `fact_energy_cost` (site_id → cost_id) |
 
-**Serving layer** — `nb_build_ontology` (run by the `pl_build_ontology` pipeline)
-materializes denormalized, business-named entity tables in `lh_gold`:
-
-| Table | Class | Business view |
-|-------|-------|---------------|
-| `onto_region` | Region | regions |
-| `onto_site` | Site | site + region names resolved |
-| `onto_device` | Device | device + its site & region |
-| `onto_billing` | BillingRecord | billing + site & region |
-| `onto_site_360` | Site | per-site summary: device count, total energy, cost, CO₂ |
-
-These are ideal to bind to a **Power BI semantic model** or **Digital Twin
-Builder** ontology for a business-facing view.
+The ontology is deployed automatically with the rest of the structure. It requires
+the **Ontology** preview to be enabled in the tenant, a Fabric capacity, and the
+service principal's Contributor role. Once deployed you can browse/query it in
+Fabric IQ and layer analytics or agents on top.
 
 ## Repository layout
 
@@ -200,21 +195,22 @@ Builder** ontology for a business-facing view.
 | `src/create_delta_tables.py` | Creates the per-layer Delta tables (empty) |
 | `src/cleanup.py` | Resets lakehouse tables for a clean redeploy |
 | `src/deploy_items.py` | Deploys Fabric notebooks + data pipelines via REST |
+| `src/deploy_ontology.py` | Deploys the Fabric IQ Ontology item (binds to silver) |
 | `src/deploy_medallion.py` | End-to-end deployment orchestrator |
 | `notebooks/nb_seed_dimensions.py` | (manual) seeds 20 sites + 100 devices into bronze |
 | `notebooks/nb_seed_facts.py` | (manual, repeatable) appends >1000 readings + >1000 billing rows |
 | `notebooks/nb_truncate_all.py` | (manual) deletes all rows from every table (schemas kept) |
 | `notebooks/nb_bronze_to_silver.py` | bronze → silver transform (run by pipeline) |
 | `notebooks/nb_silver_to_gold.py` | silver → gold transform (run by pipeline) |
-| `notebooks/nb_build_ontology.py` | builds the `onto_*` ontology serving layer (run by pipeline) |
-| `ontology/energy_ontology.json` | formal ontology definition (classes, relationships, measures) |
+| `ontology/energy_ontology.json` | Fabric IQ ontology definition (entities, relationships, bindings) |
 | `.github/workflows/deploy.yml` | CI/CD deployment pipeline |
 
 ## Deployment
 
 The GitHub Actions workflow (**Deploy Fabric medallion**) deploys the **structure
 only**: it provisions the 3 lakehouses, creates the Delta tables **empty**, and
-deploys the Fabric notebooks + data pipelines. It does **not** load or transform
+deploys the Fabric notebooks + data pipelines, and creates the **Fabric IQ
+Ontology** item bound to the silver tables. It does **not** load or transform
 data (that is done manually inside Fabric). Configuration:
 
 - **Secret**: `AZURE_CLIENT_SECRET`
@@ -237,11 +233,10 @@ identity and resolve lakehouse paths at runtime via
 | `nb_seed_facts` | Notebook | manual (repeatable) | Append >1000 readings + >1000 billing rows |
 | `nb_bronze_to_silver` | Notebook | `pl_bronze_to_silver` | Clean / typecast / dedup bronze → silver |
 | `nb_silver_to_gold` | Notebook | `pl_silver_to_gold` | Aggregate silver → gold KPIs |
-| `nb_build_ontology` | Notebook | `pl_build_ontology` | Build `onto_*` business ontology serving layer in gold |
 | `nb_truncate_all` | Notebook | manual | Delete all rows from every table (schemas kept) |
 | `pl_bronze_to_silver` | Data pipeline | manual | Runs `nb_bronze_to_silver` |
 | `pl_silver_to_gold` | Data pipeline | manual | Runs `nb_silver_to_gold` |
-| `pl_build_ontology` | Data pipeline | manual | Runs `nb_build_ontology` |
+| `energy_ontology` | Ontology (Fabric IQ) | — | Entity types + relationships bound to silver tables |
 
 ## Running the demo (manual, inside Fabric)
 
@@ -255,8 +250,9 @@ artifacts **in this order**:
    step 1.
 3. **`pl_bronze_to_silver`** pipeline — cleans/conforms bronze into silver.
 4. **`pl_silver_to_gold`** pipeline — aggregates silver into gold KPIs.
-5. **`pl_build_ontology`** pipeline — builds the `onto_*` business ontology
-   serving layer in gold.
+
+The **`energy_ontology`** Fabric IQ item is deployed by CI and binds directly to
+the silver tables, so it reflects data as soon as the silver pipeline has run.
 
 Order matters: each step overwrites its target from its source, so bronze must
 contain data before running the pipelines.

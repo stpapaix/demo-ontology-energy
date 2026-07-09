@@ -178,12 +178,10 @@ def deploy_items() -> None:
     deploy_notebook("nb_truncate_all", "nb_truncate_all.py")
     nb_b2s = deploy_notebook("nb_bronze_to_silver", "nb_bronze_to_silver.py")
     nb_s2g = deploy_notebook("nb_silver_to_gold", "nb_silver_to_gold.py")
-    nb_onto = deploy_notebook("nb_build_ontology", "nb_build_ontology.py")
 
     print("\nDeploying pipelines...")
     deploy_pipeline("pl_bronze_to_silver", nb_b2s, "Run bronze to silver")
     deploy_pipeline("pl_silver_to_gold", nb_s2g, "Run silver to gold")
-    deploy_pipeline("pl_build_ontology", nb_onto, "Run build ontology")
 
 
 if __name__ == "__main__":

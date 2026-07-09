@@ -15,6 +15,7 @@ import os
 from cleanup import reset_lakehouses
 from create_delta_tables import create_all_tables
 from deploy_items import deploy_items
+from deploy_ontology import deploy_ontology
 from provision_lakehouses import provision_lakehouses
 from spark_utils import build_spark
 
@@ -33,7 +34,9 @@ def main() -> None:
 
     deploy_items()
 
-    print("\n=== Deployment complete: empty tables + notebooks + pipelines ===")
+    deploy_ontology()
+
+    print("\n=== Deployment complete: empty tables + notebooks + pipelines + ontology ===")
 
 
 if __name__ == "__main__":

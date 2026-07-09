@@ -1,61 +1,83 @@
 {
-  "name": "SchneiderEnergyOntology",
-  "version": "1.0",
-  "description": "Business-oriented ontology for the Schneider Electric energy medallion. Entities and relationships map to the silver lakehouse (conformed star model); measures map to the gold lakehouse. A denormalized serving layer (onto_* tables in gold) is materialized by nb_build_ontology.",
-  "classes": [
+  "name": "EnergyOntology",
+  "displayName": "energy_ontology",
+  "description": "Fabric IQ ontology for the Schneider Electric energy domain, bound to the silver lakehouse conformed model. Entity types and relationships are backed by silver Delta tables via the lakehouse SQL endpoint (dbo). This file is the deploy source consumed by src/deploy_ontology.py.",
+  "sourceLakehouse": "lh_silver",
+  "sourceSchema": "dbo",
+  "entities": [
     {
       "name": "Region",
-      "source": { "lakehouse": "lh_silver", "table": "dim_region" },
+      "table": "dim_region",
       "key": "region_id",
-      "properties": ["region_id", "region_code", "region_name"]
+      "displayNameProperty": "region_name",
+      "properties": [
+        { "name": "region_id", "valueType": "String" },
+        { "name": "region_code", "valueType": "String" },
+        { "name": "region_name", "valueType": "String" }
+      ]
     },
     {
       "name": "Site",
-      "source": { "lakehouse": "lh_silver", "table": "dim_site" },
+      "table": "dim_site",
       "key": "site_id",
-      "properties": ["site_id", "site_name", "country", "region_id", "site_type", "contracted_power_kw", "commissioned_date"]
+      "displayNameProperty": "site_name",
+      "properties": [
+        { "name": "site_id", "valueType": "String" },
+        { "name": "site_name", "valueType": "String" },
+        { "name": "country", "valueType": "String" },
+        { "name": "region_id", "valueType": "String" },
+        { "name": "site_type", "valueType": "String" },
+        { "name": "contracted_power_kw", "valueType": "Double" }
+      ]
     },
     {
       "name": "Device",
-      "source": { "lakehouse": "lh_silver", "table": "dim_device" },
+      "table": "dim_device",
       "key": "device_id",
-      "properties": ["device_id", "site_id", "device_type", "model", "measurement_unit", "install_location", "is_active"]
+      "displayNameProperty": "device_id",
+      "properties": [
+        { "name": "device_id", "valueType": "String" },
+        { "name": "site_id", "valueType": "String" },
+        { "name": "device_type", "valueType": "String" },
+        { "name": "model", "valueType": "String" },
+        { "name": "measurement_unit", "valueType": "String" },
+        { "name": "is_active", "valueType": "Boolean" }
+      ]
     },
     {
       "name": "EnergyReading",
-      "source": { "lakehouse": "lh_silver", "table": "fact_energy_consumption" },
+      "table": "fact_energy_consumption",
       "key": "reading_id",
-      "properties": ["reading_id", "device_id", "site_id", "timestamp", "energy_kwh", "active_power_kw", "voltage_v", "current_a", "power_factor"]
+      "displayNameProperty": "reading_id",
+      "properties": [
+        { "name": "reading_id", "valueType": "String" },
+        { "name": "device_id", "valueType": "String" },
+        { "name": "site_id", "valueType": "String" },
+        { "name": "timestamp", "valueType": "DateTime" },
+        { "name": "energy_kwh", "valueType": "Double" },
+        { "name": "active_power_kw", "valueType": "Double" },
+        { "name": "power_factor", "valueType": "Double" }
+      ]
     },
     {
       "name": "BillingRecord",
-      "source": { "lakehouse": "lh_silver", "table": "fact_energy_cost" },
+      "table": "fact_energy_cost",
       "key": "cost_id",
-      "properties": ["cost_id", "site_id", "billing_period", "energy_consumed_kwh", "peak_demand_kw", "tariff_rate", "energy_cost", "co2_emissions_kg", "currency"]
+      "displayNameProperty": "cost_id",
+      "properties": [
+        { "name": "cost_id", "valueType": "String" },
+        { "name": "site_id", "valueType": "String" },
+        { "name": "billing_period", "valueType": "String" },
+        { "name": "energy_cost", "valueType": "Double" },
+        { "name": "co2_emissions_kg", "valueType": "Double" },
+        { "name": "currency", "valueType": "String" }
+      ]
     }
   ],
   "relationships": [
-    { "name": "locatedIn", "from": "Site", "to": "Region", "fromKey": "region_id", "toKey": "region_id", "cardinality": "many-to-one" },
-    { "name": "hasDevice", "from": "Site", "to": "Device", "fromKey": "site_id", "toKey": "site_id", "cardinality": "one-to-many" },
-    { "name": "produces", "from": "Device", "to": "EnergyReading", "fromKey": "device_id", "toKey": "device_id", "cardinality": "one-to-many" },
-    { "name": "measuredAt", "from": "EnergyReading", "to": "Site", "fromKey": "site_id", "toKey": "site_id", "cardinality": "many-to-one" },
-    { "name": "billedFor", "from": "Site", "to": "BillingRecord", "fromKey": "site_id", "toKey": "site_id", "cardinality": "one-to-many" }
-  ],
-  "measures": [
-    { "name": "DailyTotalEnergyKwh", "source": { "lakehouse": "lh_gold", "table": "agg_daily_consumption_by_site" }, "column": "total_energy_kwh", "attachedTo": "Site", "grain": ["site_id", "reading_date"] },
-    { "name": "DailyAvgPowerFactor", "source": { "lakehouse": "lh_gold", "table": "agg_daily_consumption_by_site" }, "column": "avg_power_factor", "attachedTo": "Site", "grain": ["site_id", "reading_date"] },
-    { "name": "TotalCO2Kg", "source": { "lakehouse": "lh_gold", "table": "kpi_co2_by_region" }, "column": "total_co2_kg", "attachedTo": "Region", "grain": ["region_id", "billing_period"] },
-    { "name": "TotalCost", "source": { "lakehouse": "lh_gold", "table": "kpi_co2_by_region" }, "column": "total_cost", "attachedTo": "Region", "grain": ["region_id", "billing_period"] }
-  ],
-  "servingLayer": {
-    "lakehouse": "lh_gold",
-    "builtBy": "nb_build_ontology",
-    "tables": [
-      { "table": "onto_region", "class": "Region" },
-      { "table": "onto_site", "class": "Site", "denormalizes": ["Region"] },
-      { "table": "onto_device", "class": "Device", "denormalizes": ["Site", "Region"] },
-      { "table": "onto_billing", "class": "BillingRecord", "denormalizes": ["Site", "Region"] },
-      { "table": "onto_site_360", "class": "Site", "description": "Per-site business summary: device count, total energy, total cost, total CO2" }
-    ]
-  }
+    { "name": "locatedIn", "source": "Site", "target": "Region", "table": "dim_site", "sourceKeyColumn": "site_id", "targetKeyColumn": "region_id" },
+    { "name": "hasDevice", "source": "Site", "target": "Device", "table": "dim_device", "sourceKeyColumn": "site_id", "targetKeyColumn": "device_id" },
+    { "name": "produces", "source": "Device", "target": "EnergyReading", "table": "fact_energy_consumption", "sourceKeyColumn": "device_id", "targetKeyColumn": "reading_id" },
+    { "name": "billedFor", "source": "Site", "target": "BillingRecord", "table": "fact_energy_cost", "sourceKeyColumn": "site_id", "targetKeyColumn": "cost_id" }
+  ]
 }

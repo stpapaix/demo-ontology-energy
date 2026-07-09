@@ -13,4 +13,6 @@ env/
 .python-version
 
 # IDE
-.vscode/*.log
+.vscode/
+.stubs/
+*.log
