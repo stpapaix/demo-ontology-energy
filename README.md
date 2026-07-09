@@ -183,19 +183,17 @@ service principal's Contributor role. Once deployed you can browse/query it in
 Fabric IQ and layer analytics or agents on top.
 ## Data Agent
 
-A **Fabric Data Agent** (`energy_data_agent`) is deployed on top of the model so
-business users can ask natural-language questions ("total energy cost by region?",
-"which site emits the most CO2?"). It is grounded on the **silver** lakehouse (the
-same conformed tables the ontology binds to) and ships:
-
-- **AI instructions** describing the entities, joins, units, and the per-site totals on `dim_site`.
-- **Selected tables/columns** (dim_region, dim_site, dim_device, fact_energy_consumption, fact_energy_cost).
-- **Few-shot** question -> SQL examples so answers are accurate.
+A **Fabric Data Agent** (`energy_data_agent`) is deployed **on top of the
+`energy_ontology`** item so business users can ask natural-language questions
+("total energy cost by region?", "which site emits the most CO2?"). The ontology
+is its data source, so answers reason over the entities and relationships (not raw
+tables). It ships **AI instructions** describing the entities, relationships, units
+and the per-site totals.
 
 Built by [`src/deploy_data_agent.py`](src/deploy_data_agent.py) via the
 `/workspaces/{id}/dataAgents` REST API. Requires the Data Agent preview + Fabric
-Copilot/AI to be enabled in the tenant. Ask it questions from the Data Agent
-experience in Fabric once the silver pipeline has loaded data.
+Copilot/AI enabled in the tenant. Ask it questions from the Data Agent experience
+in Fabric once the silver pipeline has loaded data.
 ## Repository layout
 
 | Path | Purpose |
