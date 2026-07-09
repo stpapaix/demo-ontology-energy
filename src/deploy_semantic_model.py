@@ -49,13 +49,15 @@ TABLES = {
     ],
 }
 
-# (fromTable[many], fromColumn, toTable[one], toColumn) - mirrors the ontology relationships
+# (fromTable[many], fromColumn, toTable[one], toColumn, isActive) - mirrors the ontology relationships.
+# dim_device->dim_site is inactive: fact_energy_consumption already reaches dim_site directly, so an
+# active snowflake link would create an ambiguous path (fact->device->site vs fact->site).
 RELATIONSHIPS = [
-    ("dim_site", "region_id", "dim_region", "region_id"),
-    ("dim_device", "site_id", "dim_site", "site_id"),
-    ("fact_energy_consumption", "site_id", "dim_site", "site_id"),
-    ("fact_energy_consumption", "device_id", "dim_device", "device_id"),
-    ("fact_energy_cost", "site_id", "dim_site", "site_id"),
+    ("dim_site", "region_id", "dim_region", "region_id", True),
+    ("dim_device", "site_id", "dim_site", "site_id", False),
+    ("fact_energy_consumption", "site_id", "dim_site", "site_id", True),
+    ("fact_energy_consumption", "device_id", "dim_device", "device_id", True),
+    ("fact_energy_cost", "site_id", "dim_site", "site_id", True),
 ]
 
 # table -> [(measure name, DAX, format string)]
@@ -148,8 +150,9 @@ def _model_bim(connection: str, database: str) -> dict:
                 {
                     "name": _lineage("rel", ft, fc, tt, tc),
                     "fromTable": ft, "fromColumn": fc, "toTable": tt, "toColumn": tc,
+                    **({} if active else {"isActive": False}),
                 }
-                for ft, fc, tt, tc in RELATIONSHIPS
+                for ft, fc, tt, tc, active in RELATIONSHIPS
             ],
         },
     }
