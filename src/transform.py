@@ -29,6 +29,23 @@ def bronze_to_silver(spark: SparkSession, bronze_id: str, silver_id: str) -> Non
     """Clean, type-cast and deduplicate raw bronze data into conformed silver tables."""
     print("\n[bronze -> silver] cleaning & conforming...")
 
+    dim_region = (
+        _read(spark, bronze_id, "raw_site")
+        .select(F.col("region").alias("region_code"))
+        .filter(F.col("region_code").isNotNull())
+        .distinct()
+        .withColumn("region_id", F.md5(F.col("region_code")))
+        .withColumn(
+            "region_name",
+            F.when(F.col("region_code") == "EMEA", "Europe, Middle East & Africa")
+            .when(F.col("region_code") == "AMER", "Americas")
+            .when(F.col("region_code") == "APAC", "Asia-Pacific")
+            .otherwise(F.col("region_code")),
+        )
+        .select("region_id", "region_code", "region_name")
+    )
+    _write(dim_region, silver_id, "dim_region")
+
     dim_site = (
         _read(spark, bronze_id, "raw_site")
         .select(
@@ -42,6 +59,7 @@ def bronze_to_silver(spark: SparkSession, bronze_id: str, silver_id: str) -> Non
             F.col("contracted_power_kw").cast("double"),
             F.to_date("commissioned_date").alias("commissioned_date"),
         )
+        .withColumn("region_id", F.md5(F.col("region")))
         .filter(F.col("site_id").isNotNull())
         .dropDuplicates(["site_id"])
     )

@@ -62,11 +62,20 @@ DIM_SITE = StructType(
         StructField("site_name", StringType()),
         StructField("country", StringType()),
         StructField("region", StringType()),
+        StructField("region_id", StringType()),
         StructField("latitude", DoubleType()),
         StructField("longitude", DoubleType()),
         StructField("site_type", StringType()),
         StructField("contracted_power_kw", DoubleType()),
         StructField("commissioned_date", DateType()),
+    ]
+)
+
+DIM_REGION = StructType(
+    [
+        StructField("region_id", StringType(), nullable=False),
+        StructField("region_code", StringType()),
+        StructField("region_name", StringType()),
     ]
 )
 
@@ -146,6 +155,7 @@ LAYER_TABLES = {
         "raw_billing": (RAW_BILLING, []),
     },
     "silver": {
+        "dim_region": (DIM_REGION, []),
         "dim_site": (DIM_SITE, []),
         "dim_device": (DIM_DEVICE, []),
         "fact_energy_consumption": (FACT_ENERGY_CONSUMPTION, ["reading_date"]),

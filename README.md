@@ -42,7 +42,14 @@ ingestion metadata (`ingested_at`, `source_file`). Immutable and reprocessable.
 | `raw_billing` | cost_id, site_id, billing_period, energy_consumed_kwh, peak_demand_kw, tariff_rate, energy_cost, co2_emissions_kg, currency |
 
 ### 🥈 Silver — conformed star model
-Cleaned and correctly typed. Two dimensions and two facts.
+Cleaned and correctly typed. Three dimensions (region, site, device) and two facts.
+
+**`dim_region`** — geographic regions (surrogate key from raw_site regions)
+| Column | Type |
+|--------|------|
+| region_id (PK) | string |
+| region_code | string |
+| region_name | string |
 
 **`dim_site`** — monitored facilities
 | Column | Type |
@@ -51,6 +58,7 @@ Cleaned and correctly typed. Two dimensions and two facts.
 | site_name | string |
 | country | string |
 | region | string |
+| region_id (FK → dim_region) | string |
 | latitude | double |
 | longitude | double |
 | site_type | string |
