@@ -9,11 +9,16 @@ and never stored in the repository.
 
 ```mermaid
 flowchart LR
-    SRC[Meter telemetry / ERP billing] --> B[🥉 lh_bronze<br/>raw, as-ingested]
-    B --> S[🥈 lh_silver<br/>cleaned, conformed]
-    S --> G[🥇 lh_gold<br/>aggregated KPIs]
+    NB1[nb_seed_dimensions] --> B
+    NB2[nb_seed_facts] --> B
+    B[🥉 lh_bronze<br/>raw, as-ingested] -->|pl_bronze_to_silver| S[🥈 lh_silver<br/>cleaned, conformed]
+    S -->|pl_silver_to_gold| G[🥇 lh_gold<br/>aggregated KPIs]
     G --> BI[Power BI / analytics]
 ```
+
+Data is **generated** by manually-run notebooks and **transformed** by data
+pipelines — all running inside Fabric. The structure (lakehouses, empty tables,
+notebooks and pipelines) is deployed from CI/CD with a service principal.
 
 Each medallion layer is a separate Fabric **lakehouse**:
 
@@ -146,28 +151,48 @@ keys, and deduplication on business keys.
 
 The GitHub Actions workflow (**Deploy Fabric medallion**) deploys the **structure
 only**: it provisions the 3 lakehouses, creates the Delta tables **empty**, and
-deploys 4 Fabric notebooks + 2 data pipelines. It does **not** load or transform
-data. Configuration:
+deploys the Fabric notebooks + data pipelines. It does **not** load or transform
+data (that is done manually inside Fabric). Configuration:
 
 - **Secret**: `AZURE_CLIENT_SECRET`
 - **Variables**: `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `FABRIC_WORKSPACE_ID`
-- **Job env**: `RESET_TABLES` (wipe & recreate empty tables)
+- **Job env**: `RESET_TABLES` — default **`false`** (non-destructive: empty tables
+  are created with `mode("ignore")`, so existing data is preserved). Set to
+  `true` only for a full wipe-and-recreate.
 
 The service principal requires the *"Service principals can use Fabric APIs"*
 tenant setting, a **Member/Contributor** role on the workspace, and the workspace
-must be on a **Fabric capacity**.
+must be on a **Fabric capacity**. Notebooks access OneLake with the workspace
+identity and resolve lakehouse paths at runtime via
+`notebookutils.lakehouse.get(...)`.
+
+## Deployed Fabric artifacts
+
+| Item | Type | Run by | Purpose |
+|------|------|--------|---------|
+| `nb_seed_dimensions` | Notebook | manual (once) | Create 20 sites + 100 devices in bronze |
+| `nb_seed_facts` | Notebook | manual (repeatable) | Append >1000 readings + >1000 billing rows |
+| `nb_bronze_to_silver` | Notebook | `pl_bronze_to_silver` | Clean / typecast / dedup bronze → silver |
+| `nb_silver_to_gold` | Notebook | `pl_silver_to_gold` | Aggregate silver → gold KPIs |
+| `nb_truncate_all` | Notebook | manual | Delete all rows from every table (schemas kept) |
+| `pl_bronze_to_silver` | Data pipeline | manual | Runs `nb_bronze_to_silver` |
+| `pl_silver_to_gold` | Data pipeline | manual | Runs `nb_silver_to_gold` |
 
 ## Running the demo (manual, inside Fabric)
 
 After deployment the tables are empty. Load and transform data by running the
-Fabric artifacts in this order:
+artifacts **in this order**:
 
-1. **`nb_seed_dimensions`** — run once. Creates 20 sites + 100 devices in bronze.
-2. **`nb_seed_facts`** — run as many times as you like. Each run appends
-   >1000 random meter readings and >1000 billing rows, coherent with the
-   sites/devices from step 1.
+1. **`nb_seed_dimensions`** — run once. Expect `raw_site written: 20 rows` and
+   `raw_device written: 100 rows`.
+2. **`nb_seed_facts`** — run one or more times. Each run appends >1000 random
+   meter readings and >1000 billing rows, coherent with the sites/devices from
+   step 1.
 3. **`pl_bronze_to_silver`** pipeline — cleans/conforms bronze into silver.
 4. **`pl_silver_to_gold`** pipeline — aggregates silver into gold KPIs.
 
-The two pipelines each run their corresponding notebook
-(`nb_bronze_to_silver`, `nb_silver_to_gold`).
+Order matters: each step overwrites its target from its source, so bronze must
+contain data before running the pipelines.
+
+To start over, run **`nb_truncate_all`** (empties every table, keeps schemas),
+then repeat from step 1.
