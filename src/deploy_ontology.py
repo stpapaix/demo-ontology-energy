@@ -11,11 +11,18 @@ import json
 import os
 import uuid
 
+import requests
+
 from config import LAKEHOUSE_NAMES, WORKSPACE_ID
-from deploy_items import _b64, _create_or_update
+from deploy_items import FABRIC_API, _TIMEOUT, _b64, _create_or_update, _headers
 from provision_lakehouses import list_lakehouses
 
 _SPEC_PATH = os.path.join(os.path.dirname(__file__), "..", "ontology", "energy_ontology.json")
+
+# Candidate job types for triggering an on-demand graph refresh. The graph-refresh
+# job type is not documented in the public REST API, so we try a short ordered list
+# and stop at the first that the service accepts. All failures are non-fatal.
+_GRAPH_REFRESH_JOB_TYPES = ("Refresh", "GraphRefresh", "RefreshGraph", "DefaultJob")
 
 
 def _bigint(*parts: str) -> str:
@@ -122,6 +129,56 @@ def deploy_ontology() -> None:
     definition = _build_definition(model, silver_id)
     print("\nDeploying Fabric IQ ontology...")
     _create_or_update("ontologies", model["displayName"], definition)
+    refresh_graph_model(model["displayName"])
+
+
+def _find_graph_item(ontology_name: str) -> dict | None:
+    """Return the Graph child item auto-created for the ontology, if present.
+
+    The ontology creates a companion graph item named like '<ontology>_graph_<guid>'.
+    """
+    resp = requests.get(f"{FABRIC_API}/workspaces/{WORKSPACE_ID}/items", headers=_headers(), timeout=_TIMEOUT)
+    resp.raise_for_status()
+    prefix = f"{ontology_name}_graph"
+    for item in resp.json().get("value", []):
+        name = item.get("displayName", "")
+        item_type = (item.get("type") or "").lower()
+        if name.startswith(prefix) or ("graph" in item_type and ontology_name in name):
+            return item
+    return None
+
+
+def refresh_graph_model(ontology_name: str) -> None:
+    """Best-effort trigger of the graph ingestion job (populates nodes/edges).
+
+    Deploying the ontology via REST does not fire the graph refresh that the portal
+    schema editor does, so the companion graph stays empty. We try to start an
+    on-demand refresh job; any failure is non-fatal and prints manual guidance.
+    """
+    try:
+        graph = _find_graph_item(ontology_name)
+    except requests.RequestException as exc:
+        print(f"  ! Could not list items to find the graph model: {exc}")
+        graph = None
+
+    if not graph:
+        print("  ! Graph child item not found yet; refresh it manually once it exists "
+              "(workspace -> graph model -> ... -> Schedule -> Refresh now).")
+        return
+
+    graph_id = graph["id"]
+    for job_type in _GRAPH_REFRESH_JOB_TYPES:
+        url = f"{FABRIC_API}/workspaces/{WORKSPACE_ID}/items/{graph_id}/jobs/instances?jobType={job_type}"
+        try:
+            resp = requests.post(url, headers=_headers(), timeout=_TIMEOUT)
+        except requests.RequestException as exc:
+            print(f"  ! Graph refresh request failed ({job_type}): {exc}")
+            continue
+        if resp.status_code in (200, 202):
+            print(f"  + Triggered graph refresh job (jobType={job_type}) on '{graph['displayName']}'.")
+            return
+    print("  ! Automatic graph refresh not accepted by the API. Refresh manually: "
+          "workspace -> graph model -> ... -> Schedule -> Refresh now.")
 
 
 if __name__ == "__main__":
