@@ -152,11 +152,22 @@ classDiagram
     class Device
     class EnergyReading
     class BillingRecord
+    class Supplier
+    class MaintenanceEvent
     Site "*" --> "1" Region : locatedIn
     Site "1" --> "*" Device : hasDevice
     Device "1" --> "*" EnergyReading : produces
     Site "1" --> "*" BillingRecord : billedFor
+    Device "1" --> "*" MaintenanceEvent : hasMaintenance
+    MaintenanceEvent "*" --> "1" Supplier : performedBy
 ```
+
+> **Cross-source unification.** `Supplier` and `MaintenanceEvent` come from a
+> **second source system** (asset maintenance) conformed into silver as
+> `dim_supplier` / `maintenance_event`. The ontology stitches them to the energy
+> star schema via `Device → MaintenanceEvent → Supplier`, so you can traverse from
+> energy/emissions data into maintenance and supplier data in a single semantic
+> graph — something a single semantic model over one star schema cannot do.
 
 **Entity types → bound silver table:**
 
@@ -167,6 +178,8 @@ classDiagram
 | Device | `dim_device` | device_id |
 | EnergyReading | `fact_energy_consumption` | reading_id |
 | BillingRecord | `fact_energy_cost` | cost_id |
+| Supplier | `dim_supplier` | supplier_id |
+| MaintenanceEvent | `maintenance_event` | event_id |
 
 **Relationship types (contextualized on silver tables):**
 
@@ -176,6 +189,8 @@ classDiagram
 | `hasDevice` | Site → Device | `dim_device` (site_id → device_id) |
 | `produces` | Device → EnergyReading | `fact_energy_consumption` (device_id → reading_id) |
 | `billedFor` | Site → BillingRecord | `fact_energy_cost` (site_id → cost_id) |
+| `hasMaintenance` | Device → MaintenanceEvent | `maintenance_event` (device_id → event_id) |
+| `performedBy` | MaintenanceEvent → Supplier | `maintenance_event` (event_id → supplier_id) |
 
 The ontology is deployed automatically with the rest of the structure. It requires
 the **Ontology** preview to be enabled in the tenant, a Fabric capacity, and the
@@ -213,6 +228,7 @@ in Fabric once the silver pipeline has loaded data.
 | `src/deploy_medallion.py` | End-to-end deployment orchestrator |
 | `notebooks/nb_seed_dimensions.py` | (manual) seeds 20 sites + 100 devices into bronze |
 | `notebooks/nb_seed_facts.py` | (manual, repeatable) appends >1000 readings + >1000 billing rows |
+| `notebooks/nb_seed_maintenance.py` | (manual) seeds `dim_supplier` + `maintenance_event` (2nd source) into silver |
 | `notebooks/nb_truncate_all.py` | (manual) deletes all rows from every table (schemas kept) |
 | `notebooks/nb_bronze_to_silver.py` | bronze → silver transform (run by pipeline) |
 | `notebooks/nb_silver_to_gold.py` | silver → gold transform (run by pipeline) |
@@ -245,14 +261,16 @@ identity and resolve lakehouse paths at runtime via
 |------|------|--------|---------|
 | `nb_seed_dimensions` | Notebook | manual (once) | Create 20 sites + 100 devices in bronze |
 | `nb_seed_facts` | Notebook | manual (repeatable) | Append >1000 readings + >1000 billing rows |
+| `nb_seed_maintenance` | Notebook | manual (once) | Seed `dim_supplier` + `maintenance_event` (2nd source) into silver |
 | `nb_bronze_to_silver` | Notebook | `pl_bronze_to_silver` | Clean / typecast / dedup bronze → silver |
 | `nb_silver_to_gold` | Notebook | `pl_silver_to_gold` | Aggregate silver → gold KPIs |
 | `nb_truncate_all` | Notebook | manual | Delete all rows from every table (schemas kept) |
 | `pl_bronze_to_silver` | Data pipeline | manual | Runs `nb_bronze_to_silver` |
 | `pl_silver_to_gold` | Data pipeline | manual | Runs `nb_silver_to_gold` |
-| `energy_ontology` | Ontology (Fabric IQ) | — | Entity types + relationships bound to silver tables |
-| `energy_semantic_model` | Semantic model (Direct Lake) | — | Same entities/relationships as the ontology, over silver |
-| `energy_data_agent` | Data Agent | — | Natural-language Q&A grounded on the silver model |
+| `energy_ontology` | Ontology (Fabric IQ) | — | Entity types + relationships bound to silver tables (incl. supplier/maintenance) |
+| `energy_semantic_model` | Semantic model (Direct Lake) | — | Energy star schema over silver, with measures |
+| `energy_data_agent` | Data Agent | — | Natural-language Q&A grounded on the ontology |
+| `energy_semantic_data_agent` | Data Agent | — | Natural-language Q&A grounded on the semantic model |
 
 ## Running the demo (manual, inside Fabric)
 
@@ -266,6 +284,9 @@ artifacts **in this order**:
    step 1.
 3. **`pl_bronze_to_silver`** pipeline — cleans/conforms bronze into silver.
 4. **`pl_silver_to_gold`** pipeline — aggregates silver into gold KPIs.
+5. **`nb_seed_maintenance`** — run once, **after** step 3 (needs `dim_device`).
+   Seeds the 2nd source (`dim_supplier`, `maintenance_event`) into silver so the
+   ontology's cross-source relationships resolve.
 
 The **`energy_ontology`** Fabric IQ item is deployed by CI and binds directly to
 the silver tables, so it reflects data as soon as the silver pipeline has run.

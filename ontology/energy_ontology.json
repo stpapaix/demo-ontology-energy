@@ -85,12 +85,47 @@
       "bindings": [
         { "table": "fact_energy_cost", "columns": ["cost_id", "site_id", "billing_period", "energy_cost", "co2_emissions_kg", "currency"] }
       ]
+    },
+    {
+      "name": "Supplier",
+      "key": "supplier_id",
+      "displayNameProperty": "supplier_name",
+      "properties": [
+        { "name": "supplier_id", "valueType": "String" },
+        { "name": "supplier_name", "valueType": "String" },
+        { "name": "supplier_type", "valueType": "String" },
+        { "name": "country", "valueType": "String" }
+      ],
+      "bindings": [
+        { "table": "dim_supplier", "columns": ["supplier_id", "supplier_name", "supplier_type", "country"] }
+      ]
+    },
+    {
+      "name": "MaintenanceEvent",
+      "key": "event_id",
+      "displayNameProperty": "description",
+      "properties": [
+        { "name": "event_id", "valueType": "String" },
+        { "name": "device_id", "valueType": "String" },
+        { "name": "site_id", "valueType": "String" },
+        { "name": "supplier_id", "valueType": "String" },
+        { "name": "event_date", "valueType": "DateTime" },
+        { "name": "event_type", "valueType": "String" },
+        { "name": "downtime_hours", "valueType": "Double" },
+        { "name": "cost", "valueType": "Double" },
+        { "name": "description", "valueType": "String" }
+      ],
+      "bindings": [
+        { "table": "maintenance_event", "columns": ["event_id", "device_id", "site_id", "supplier_id", "event_date", "event_type", "downtime_hours", "cost", "description"] }
+      ]
     }
   ],
   "relationships": [
     { "name": "locatedIn", "source": "Site", "target": "Region", "table": "dim_site", "sourceKeyColumn": "site_id", "targetKeyColumn": "region_id" },
     { "name": "hasDevice", "source": "Site", "target": "Device", "table": "dim_device", "sourceKeyColumn": "site_id", "targetKeyColumn": "device_id" },
     { "name": "produces", "source": "Device", "target": "EnergyReading", "table": "fact_energy_consumption", "sourceKeyColumn": "device_id", "targetKeyColumn": "reading_id" },
-    { "name": "billedFor", "source": "Site", "target": "BillingRecord", "table": "fact_energy_cost", "sourceKeyColumn": "site_id", "targetKeyColumn": "cost_id" }
+    { "name": "billedFor", "source": "Site", "target": "BillingRecord", "table": "fact_energy_cost", "sourceKeyColumn": "site_id", "targetKeyColumn": "cost_id" },
+    { "name": "hasMaintenance", "source": "Device", "target": "MaintenanceEvent", "table": "maintenance_event", "sourceKeyColumn": "device_id", "targetKeyColumn": "event_id" },
+    { "name": "performedBy", "source": "MaintenanceEvent", "target": "Supplier", "table": "maintenance_event", "sourceKeyColumn": "event_id", "targetKeyColumn": "supplier_id" }
   ]
 }

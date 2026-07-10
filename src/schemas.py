@@ -123,6 +123,34 @@ FACT_ENERGY_COST = StructType(
     ]
 )
 
+# Second source system (asset maintenance) conformed into silver. The ontology
+# unifies these with the energy star schema above via cross-source relationships
+# (Device -> MaintenanceEvent -> Supplier), which a single semantic model cannot do.
+DIM_SUPPLIER = StructType(
+    [
+        StructField("supplier_id", StringType(), nullable=False),
+        StructField("supplier_name", StringType()),
+        StructField("supplier_type", StringType()),
+        StructField("country", StringType()),
+        StructField("contract_since", DateType()),
+    ]
+)
+
+MAINTENANCE_EVENT = StructType(
+    [
+        StructField("event_id", StringType(), nullable=False),
+        StructField("device_id", StringType(), nullable=False),
+        StructField("site_id", StringType()),
+        StructField("supplier_id", StringType(), nullable=False),
+        StructField("event_date", TimestampType()),
+        StructField("event_type", StringType()),
+        StructField("downtime_hours", DoubleType()),
+        StructField("cost", DoubleType()),
+        StructField("currency", StringType()),
+        StructField("description", StringType()),
+    ]
+)
+
 # ---------------------------------------------------------------------------
 # Gold: aggregated, business-ready tables and KPIs.
 # ---------------------------------------------------------------------------
@@ -164,6 +192,8 @@ LAYER_TABLES = {
         "dim_device": (DIM_DEVICE, []),
         "fact_energy_consumption": (FACT_ENERGY_CONSUMPTION, ["reading_date"]),
         "fact_energy_cost": (FACT_ENERGY_COST, []),
+        "dim_supplier": (DIM_SUPPLIER, []),
+        "maintenance_event": (MAINTENANCE_EVENT, []),
     },
     "gold": {
         "agg_daily_consumption_by_site": (AGG_DAILY_CONSUMPTION_BY_SITE, []),
